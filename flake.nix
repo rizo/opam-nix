@@ -2,7 +2,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    opam2json.url= "github:tweag/opam2json";
+    opam2json.url = "github:tweag/opam2json";
 
     flake-compat = {
       url = "github:edolstra/flake-compat";
@@ -16,7 +16,8 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, opam2json, opam-repository, ... }@inputs:
+  outputs =
+    { self, nixpkgs, flake-utils, opam2json, opam-repository, ... }@inputs:
     {
       aux = import ./lib.nix nixpkgs.lib;
       templates.simple.path = ./templates/simple;
@@ -32,7 +33,16 @@
           ocaml-static-overlay = import ./overlays/ocaml-static.nix;
         };
 
-        packages = checks;
+        packages = checks // {
+          opam-nix-gen = pkgs.substituteAll {
+            name = "opam-nix-gen";
+            src = ./scripts/opam-nix-gen.in;
+            dir = "bin";
+            isExecutable = true;
+            inherit (pkgs) runtimeShell;
+            opamNix = "${self}";
+          };
+        };
         checks = import ./examples inputs pkgs;
       });
 }
