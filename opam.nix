@@ -312,6 +312,21 @@ in rec {
     else
       { };
 
+  getPinDependsSource = pkgdef:
+    if pkgdef ? pin-depends then
+      if isImpure then
+        lib.warn
+        "pin-depends is not supported in pure evaluation mode; try with --impure"
+        [ ]
+      else
+        map (dep:
+          let
+            name = (splitNameVer (head dep)).name;
+            url = last dep;
+          in builtins.fetchTree url) pkgdef.pin-depends
+    else
+      [ ];
+
   buildOpamProject = { repos ? [ opamRepository ], pkgs ? bootstrapPackages
     , overlays ? __overlays, env ? defaultEnv, pinDepends ? true }@args:
     name: project: query:
@@ -319,12 +334,12 @@ in rec {
       repo = makeOpamRepo project;
       latestVersions = mapAttrs (_: last) (listRepo repo);
 
-      pinDepsOverlay = final: prev:
-        getPinDepends args
+      pinDependsSources = getPinDependsSource
         repo.passthru.pkgdefs.${name}.${latestVersions.${name}};
+      pinDependsRepos = map (makeOpamRepo) pinDependsSources;
     in queryToScope {
-      repos = [ repo ] ++ repos;
-      overlays = overlays ++ optional pinDepends pinDepsOverlay;
+      repos = [ repo ] ++ pinDependsRepos ++ repos;
+      overlays = overlays;
       inherit pkgs env;
     } ({ ${name} = latestVersions.${name}; } // query);
 
